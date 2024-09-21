@@ -24,6 +24,8 @@ class World:
         self.agent_y = 0
         self.agent_orientation = Orientation.RIGHT
         self.agent_has_gold = False
+        self.agent_has_arrow = True
+        self.wumpus_alive = True
         
 
 # function for interpreting percepts
@@ -40,14 +42,14 @@ def update_knowledge_from_percepts(world, x, y, breeze, stench):
                  if not world.grid[nx][ny].visited and not world.grid[nx][ny].safe:
                      world.grid[nx][ny].pit = True
                      
-    if stench:
+    if stench and world.wumpus_alive:
         for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
             nx, ny = x + dx, y + dy
             if 0 <= nx < world.size and 0 <= ny < world.size:
                 if not world.grid[nx][ny].visited and not world.grid[nx][ny].safe:
                     world.grid[nx][ny].wumpus = True
                     
-    if not breeze and not stench:
+    if not breeze and (not stench or not world.wumpus_alive):
         for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
             nx, ny = x + dx, y + dy
             if 0 <= nx < world.size and 0 <= ny < world.size:
@@ -68,19 +70,14 @@ def choose_next_move(world):
             nx, ny = x + dx, y + dy
             if 0 <= nx < world.size and 0 <= ny < world.size and (nx, ny) not in visited:
                 if world.grid[nx][ny].safe and not world.grid[nx][ny].visited:
-                    print(f"1{nx},{ny}")
                     return nx, ny
                 visited.add((nx, ny))
                 queue.append((nx, ny))
     return None
 
-
-# function to determine which way the agent needs to turn to be facing in the target direction
-def determine_turn(world, target_x, target_y):
+# helper function to determine the orientation of the target relative to the agent
+def get_target_orientation(world, target_x, target_y):
     agent_x, agent_y = world.agent_x, world.agent_y
-    orientation = world.agent_orientation
-
-    # Determine the orientation of the target relative to the agent
     if target_x < agent_x:
         target_orientation = Orientation.DOWN
     elif target_x > agent_x:
@@ -89,6 +86,17 @@ def determine_turn(world, target_x, target_y):
         target_orientation = Orientation.RIGHT
     else:
         target_orientation = Orientation.LEFT
+    return target_orientation
+
+# function to determine which way the agent needs to turn to be facing in the target direction
+# go_forward is a global variable to insure the agent takes the safe route when facing the right direction
+go_forward = False
+def determine_turn(world, target_x, target_y):
+    global go_forward
+    agent_x, agent_y = world.agent_x, world.agent_y
+    orientation = world.agent_orientation
+
+    target_orientation = get_target_orientation(world, target_x, target_y)
 
     # Check if the direct path to the target is safe
     if (target_orientation == Orientation.DOWN and world.grid[agent_x - 1][agent_y].safe) or \
@@ -96,7 +104,6 @@ def determine_turn(world, target_x, target_y):
        (target_orientation == Orientation.RIGHT and world.grid[agent_x][agent_y + 1].safe) or \
        (target_orientation == Orientation.LEFT and world.grid[agent_x][agent_y - 1].safe):
         # If the direct path is safe, turn directly to the target
-        print(f"orientation{orientation} target {target_orientation}")
         if orientation == target_orientation:
             return None
         elif (orientation + 1) % 4 == target_orientation:
@@ -112,17 +119,23 @@ def determine_turn(world, target_x, target_y):
                 ny = agent_y + dy
                 if 0 <= ny < world.size:
                     if world.grid[agent_x][ny].safe:
-                        return determine_turn(world, agent_x,ny)
+                        if get_target_orientation(world, agent_x, ny) != (orientation + 2) % 4:
+                            go_forward = True
+                        return determine_turn(world, agent_x, ny)
         elif target_orientation == Orientation.LEFT or target_orientation == Orientation.RIGHT:
             for dx in [-1, 1]:
                 nx = agent_x + dx
                 if 0 <= nx < world.size:
                     if world.grid[nx][agent_y].safe:
+                        if get_target_orientation(world, nx, agent_y) != (orientation + 2) % 4:
+                            go_forward = True
                         return determine_turn(world,nx,agent_y)
                     
                     
 # function to adjust the agents x,y position on movement
 def adjust_coordinates(world):
+    global start
+    start = False
     orientation = world.agent_orientation
     if orientation == Orientation.RIGHT and world.agent_y < world.size:
         world.agent_y += 1
@@ -134,6 +147,14 @@ def adjust_coordinates(world):
         world.agent_x -= 1
     else:
         return
+    
+# debug function to show current world state
+def world_state(world):
+    for x in range(world.size):
+        for y in range(world.size):  
+            print(f"x:{x}, y:{y}, \t safe:{world.grid[x][y].safe} \t visited:{world.grid[x][y].visited}"
+                  f"\tpit:{world.grid[x][y].pit} \t wumpus:{world.grid[x][y].wumpus}\
+                  breeze:{world.grid[x][y].breeze} \t stench:{world.grid[x][y].stench}\n")
 
 
 def PyAgent_Constructor():
@@ -152,15 +173,20 @@ def PyAgent_Initialize():
     myworld = World(4)
 
     print("PyAgent_Initialize")
-
+    
+# start tells us that we haven't left the start pos 0, 0 yet
+start = True
+# shot is on for one round immediately after the arrow is shot to insure the agent moves forward
+# when the Wumpus is not shot
+shot = False
 
 def PyAgent_Process(stench, breeze, glitter, bump, scream):
     """ PyAgent_Process: called with new percepts after each action to return the next action """
-    global myworld
+    global myworld, go_forward, start, shot
     
     # Update world knowledge with new percepts
     update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
-    
+    #world_state(myworld)
     percept_str = ""
     if stench == 1:
         percept_str += "Stench=True,"
@@ -188,31 +214,57 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
     if glitter == 1:
         myworld.agent_has_gold = True 
         return Action.GRAB
-
+     
+    # if there is a stench and the agent isn't facing a 'wall' shoot, this will result
+    # in either killing the Wumpus, or tells us that the wumpus isn't in front of us
+    if stench:
+        if myworld.agent_has_arrow and \
+           not (myworld.agent_orientation == Orientation.RIGHT and myworld.agent_y + 1 >= myworld.size) and\
+           not (myworld.agent_orientation == Orientation.UP and myworld.agent_x + 1 >= myworld.size) and\
+           not (myworld.agent_orientation == Orientation.LEFT and myworld.agent_y - 1 < 0) and\
+           not (myworld.agent_orientation == Orientation.DOWN and myworld.agent_x - 1 < 0):
+            myworld.agent_has_arrow = False
+            shot = True
+            return Action.SHOOT
+        elif scream:
+            myworld.wumpus_alive = False
+            update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
+            if not breeze:
+                adjust_coordinates(myworld)
+                return Action.GOFORWARD
+        elif shot and not breeze:
+            shot = False
+            adjust_coordinates(myworld)
+            return Action.GOFORWARD
     
     # Get the next move from the path
     if not myworld.agent_has_gold:
         next_move = choose_next_move(myworld)
-        #condition needs to be rewritten, this is when the next move is not found consider using cell.pit and cell.wumpus
-        #which is currently not in use
+        # better logic is needed, currently if we are at 0,0 and there is a pit next to us retreat
         if next_move is None:
-            return Action.GOFORWARD
-        
-        nx, ny = next_move
+            if start:
+                return Action.CLIMB
+            #logic needs some adjustment, for now if no move is found retreat
+            else:
+                nx, ny = 0, 0
+                if myworld.agent_x == 0 and myworld.agent_y == 0:
+                    return Action.CLIMB
+        else:
+            nx, ny = next_move
         
     #if the agent has gold return to 0, 0
     else:
         nx, ny = 0, 0
-    print(f"x,y {myworld.agent_x} {myworld.agent_y}")
+        
     if myworld.agent_has_gold and myworld.agent_x == 0 and myworld.agent_y == 0:
         return Action.CLIMB
         
-    print(f"nx{nx}, ny{ny}")
-    turn = determine_turn(myworld, nx, ny)
-    if turn is not None:
-        return turn 
+    if not go_forward:
+        turn = determine_turn(myworld, nx, ny)
+        if turn is not None:
+            return turn 
         
-    
+    go_forward = False
     adjust_coordinates(myworld)
     return Action.GOFORWARD
 
