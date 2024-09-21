@@ -16,39 +16,47 @@ class Cell:
         
 
 # class to help organize the wumpus world
+# initial values of events declared
 class World:
     def __init__(self, size):
+        # size is given from Wumpsim.py, should be 4x4 for this assignment
         self.size = size
+        # create a grid where each cell if of the Cell class declared above
         self.grid = [[Cell() for _ in range(size)] for _ in range(size)]
+        # will be 0 indexing. Agent begins in bottom left cell
         self.agent_x = 0
         self.agent_y = 0
+        # from Wumpsim.py, Agent begins by facing to the right 
         self.agent_orientation = Orientation.RIGHT
         self.agent_has_gold = False
         self.agent_has_arrow = True
         self.wumpus_alive = True
         
 
-# function for interpreting percepts
+# function for interpreting percepts and updating the Agent's knowledge of the cave
 def update_knowledge_from_percepts(world, x, y, breeze, stench):
     cell = world.grid[x][y]
     cell.visited = True
     cell.breeze = breeze
     cell.stench = stench
 
+    # update possible pit locations based on if breeze percept == True
     if breeze:
          for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
              nx, ny = x + dx, y + dy
              if 0 <= nx < world.size and 0 <= ny < world.size:
                  if not world.grid[nx][ny].visited and not world.grid[nx][ny].safe:
                      world.grid[nx][ny].pit = True
-                     
+
+    # update possible wumpus locations based on if stench percept == True                 
     if stench and world.wumpus_alive:
         for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
             nx, ny = x + dx, y + dy
             if 0 <= nx < world.size and 0 <= ny < world.size:
                 if not world.grid[nx][ny].visited and not world.grid[nx][ny].safe:
                     world.grid[nx][ny].wumpus = True
-                    
+
+    # no dangerous percepts for pit or wumpus were True                
     if not breeze and (not stench or not world.wumpus_alive):
         for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
             nx, ny = x + dx, y + dy
