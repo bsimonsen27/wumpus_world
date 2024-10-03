@@ -157,6 +157,12 @@ def adjust_coordinates(world):
     else:
         return
     
+# function for determing pit probability
+# should only be called if breeze is true
+def pit_probability(world):
+    
+    return
+
 # debug function to show current world state
 def world_state(world):
     for x in range(world.size):
