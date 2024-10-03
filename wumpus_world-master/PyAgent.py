@@ -70,6 +70,7 @@ def update_knowledge_from_percepts(world, x, y, breeze, stench):
 def choose_next_move(world):
     # Example strategy: find the closest safe, unvisited cell
     from collections import deque
+    # use a deque to iterate through possible steps
     queue = deque([(world.agent_x, world.agent_y)])
     visited = set((world.agent_x, world.agent_y))
     while queue:
