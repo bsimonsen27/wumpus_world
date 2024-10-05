@@ -13,7 +13,8 @@ class Cell:
         self.breeze = False
         self.stench = False
         self.safe = False
-        self.pit_probability = 0.0        # keep track of a cell's pit probability
+        self.pit_probability = 0.0          # keep track of a cell's pit probability
+        self.wumpus_probability = 0.0       # track probability of wumpus
         
 
 # class to help organize the wumpus world
@@ -162,22 +163,41 @@ def adjust_coordinates(world):
 # should only be called if breeze is true
 def pit_probability(world):
     # agent is touching the left wall
-    print("\nIn pit_probability")
+    #print("\nIn pit_probability") #used for debugging
     x = world.agent_x
     y = world.agent_y
     # first, get all probabilities in x range
-    if x >= 0 and x < 3 and world.grid[x+1][y].safe == False: 
+    if x >= 0 and x < 3: 
         world.grid[x+1][y].pit_probability = world.grid[x+1][y].pit_probability + 0.1
-    if x <= 3 and x > 0 and world.grid[x+1][y].safe == False:
+    if x <= 3 and x > 0:
         world.grid[x-1][y].pit_probability = world.grid[x-1][y].pit_probability + 0.1
     
     # second, get all probabilities in y range
-    if y >= 0 and y < 3 and world.grid[x][y+1].safe == False:
+    if y >= 0 and y < 3:
         world.grid[x][y+1].pit_probability = world.grid[x][y+1].pit_probability + 0.1
-    if y <= 3 and y < 0 and world.grid[x][y+1].safe == False:
+    if y <= 3 and y > 0:
         world.grid[x][y-1].pit_probability = world.grid[x][y-1].pit_probability + 0.1
     
+    return
+
+# determine the wumpus probability
+# called if stench == True
+def wumpus_probability(world):
+    x = world.agent_x
+    y = world.agent_y
+    print("\nIn wumpus_probability") # used for debugging
+
+    # first, get all probabilities in x range
+    if x >= 0 and x < 3: 
+        world.grid[x+1][y].wumpus_probability = world.grid[x+1][y].wumpus_probability + 0.1
+    if x <= 3 and x > 0:
+        world.grid[x-1][y].wumpus_probability = world.grid[x-1][y].wumpus_probability + 0.1
     
+    # second, get all probabilities in y range
+    if y >= 0 and y < 3:
+        world.grid[x][y+1].wumpus_probability = world.grid[x][y+1].wumpus_probability + 0.1
+    if y <= 3 and y > 0:
+        world.grid[x][y-1].wumpus_probability = world.grid[x][y-1].wumpus_probability + 0.1
     return
 
 # print the pit probability of all the cells
@@ -187,7 +207,10 @@ def print_pit_probability(world):
         #print("")
         for y in range(world.size):
             # print the pit probability of every cell
-            print(f"|Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability}|\t", end="")
+            if world.grid[x][y].safe == True:
+                world.grid[x][y].pit_probability = 0.0
+                world.grid[x][y].wumpus_probability = 0.0
+            print(f"|Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability} wumpus_prob:{world.grid[x][y].wumpus_probability}|\t", end="")
         print("") 
     print("")
     return
