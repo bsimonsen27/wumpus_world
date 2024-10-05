@@ -161,15 +161,25 @@ def adjust_coordinates(world):
 # function for determing pit probability
 # should only be called if breeze is true
 def pit_probability(world):
-    
+    # agent is touching the left wall
+    print("\nIn pit_probability")
+    x = world.agent_x
+    y = world.agent_y
+    if x == 0: 
+        world.grid[x+1][y].pit_probability = 0.1
+    if y == 0:
+        world.grid[x][y+1].pit_probability = 0.1
     return
 
 # print the pit probability of all the cells
 def print_pit_probability(world):
+    print("\nPrinting pit probability for each cell:")
     for x in range(world.size):
+        #print("")
         for y in range(world.size):
             # print the pit probability of every cell
-            print(f"Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability}") 
+            print(f"|Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability}|\t", end="")
+        print("") 
     print("")
     return
 
@@ -236,10 +246,12 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
     
     print("PyAgent_Process: " + percept_str)
 
-    if breeze:
+    print("Agent's x_pos: ",myworld.agent_x) # for debugging #############
+    print("Agent's y_pos: ",myworld.agent_y) # for debugging #############
+    # only update the pit_probabilities if there is a breeze and agent hasn't visited cell
+    if breeze and myworld.grid[myworld.agent_x][myworld.agent_y].visited == False:
         pit_probability(myworld)
 
-    # print cell probabilities function ########################## Need to make this function
     print_pit_probability(myworld)
     
     if glitter == 1:
