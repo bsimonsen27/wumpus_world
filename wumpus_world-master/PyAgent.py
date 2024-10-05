@@ -204,7 +204,6 @@ def wumpus_probability(world):
 def print_pit_probability(world):
     print("\nPrinting pit probability for each cell:")
     for x in range(world.size):
-        #print("")
         for y in range(world.size):
             # print the pit probability of every cell
             if world.grid[x][y].safe == True:
@@ -256,6 +255,16 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
     # only update the pit_probabilities if there is a breeze and agent hasn't visited cell
     if breeze and myworld.grid[myworld.agent_x][myworld.agent_y].visited == False:
         pit_probability(myworld)
+
+    # only update if in a new cell and wumpus is still alive
+    if stench and myworld.grid[myworld.agent_x][myworld.agent_y].visited == False and myworld.wumpus_alive == True:
+        wumpus_probability(myworld)
+
+    # if wumpus is killed, wumpus_probability will be 0.0
+    if scream == True:
+        for x in range(myworld.size):
+            for y in range(myworld.size):
+                myworld.grid[x][y].wumpus_probability = 0.0 
 
     # Update world knowledge with new percepts
     update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
