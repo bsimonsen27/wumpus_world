@@ -166,9 +166,9 @@ def pit_probability(world):
     x = world.agent_x
     y = world.agent_y
     if x == 0: 
-        world.grid[x+1][y].pit_probability = 0.1
+        world.grid[x+1][y].pit_probability = world.grid[x+1][y].pit_probability + 0.1
     if y == 0:
-        world.grid[x][y+1].pit_probability = 0.1
+        world.grid[x][y+1].pit_probability = world.grid[x][y+1].pit_probability + 0.1
     return
 
 # print the pit probability of all the cells
@@ -219,6 +219,12 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
     """ PyAgent_Process: called with new percepts after each action to return the next action """
     global myworld, go_forward, start, shot
     
+    print("Agent's x_pos: ",myworld.agent_x) # for debugging #############
+    print("Agent's y_pos: ",myworld.agent_y) # for debugging #############
+    # only update the pit_probabilities if there is a breeze and agent hasn't visited cell
+    if breeze and myworld.grid[myworld.agent_x][myworld.agent_y].visited == False:
+        pit_probability(myworld)
+
     # Update world knowledge with new percepts
     update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
     #world_state(myworld)
@@ -245,12 +251,6 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
         percept_str += "Scream=False"
     
     print("PyAgent_Process: " + percept_str)
-
-    print("Agent's x_pos: ",myworld.agent_x) # for debugging #############
-    print("Agent's y_pos: ",myworld.agent_y) # for debugging #############
-    # only update the pit_probabilities if there is a breeze and agent hasn't visited cell
-    if breeze and myworld.grid[myworld.agent_x][myworld.agent_y].visited == False:
-        pit_probability(myworld)
 
     print_pit_probability(myworld)
     
