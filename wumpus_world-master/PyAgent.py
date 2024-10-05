@@ -165,10 +165,19 @@ def pit_probability(world):
     print("\nIn pit_probability")
     x = world.agent_x
     y = world.agent_y
-    if x == 0: 
+    # first, get all probabilities in x range
+    if x >= 0 and x < 3 and world.grid[x+1][y].safe == False: 
         world.grid[x+1][y].pit_probability = world.grid[x+1][y].pit_probability + 0.1
-    if y == 0:
+    if x <= 3 and x > 0 and world.grid[x+1][y].safe == False:
+        world.grid[x-1][y].pit_probability = world.grid[x-1][y].pit_probability + 0.1
+    
+    # second, get all probabilities in y range
+    if y >= 0 and y < 3 and world.grid[x][y+1].safe == False:
         world.grid[x][y+1].pit_probability = world.grid[x][y+1].pit_probability + 0.1
+    if y <= 3 and y < 0 and world.grid[x][y+1].safe == False:
+        world.grid[x][y-1].pit_probability = world.grid[x][y-1].pit_probability + 0.1
+    
+    
     return
 
 # print the pit probability of all the cells
