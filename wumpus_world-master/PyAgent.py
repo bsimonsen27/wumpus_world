@@ -13,6 +13,7 @@ class Cell:
         self.breeze = False
         self.stench = False
         self.safe = False
+        self.pit_probability = 0.0        # keep track of a cell's pit probability
         
 
 # class to help organize the wumpus world
@@ -163,6 +164,15 @@ def pit_probability(world):
     
     return
 
+# print the pit probability of all the cells
+def print_pit_probability(world):
+    for x in range(world.size):
+        for y in range(world.size):
+            # print the pit probability of every cell
+            print(f"Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability}") 
+    print("")
+    return
+
 # debug function to show current world state
 def world_state(world):
     for x in range(world.size):
@@ -225,6 +235,12 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
         percept_str += "Scream=False"
     
     print("PyAgent_Process: " + percept_str)
+
+    if breeze:
+        pit_probability(myworld)
+
+    # print cell probabilities function ########################## Need to make this function
+    print_pit_probability(myworld)
     
     if glitter == 1:
         myworld.agent_has_gold = True 
