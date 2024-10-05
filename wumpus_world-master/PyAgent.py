@@ -44,11 +44,11 @@ def update_knowledge_from_percepts(world, x, y, breeze, stench):
 
     # update possible pit locations based on if breeze percept == True
     if breeze:
-         for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
-             nx, ny = x + dx, y + dy
-             if 0 <= nx < world.size and 0 <= ny < world.size:
-                 if not world.grid[nx][ny].visited and not world.grid[nx][ny].safe:
-                     world.grid[nx][ny].pit = True
+        for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < world.size and 0 <= ny < world.size:
+                if not world.grid[nx][ny].visited and not world.grid[nx][ny].safe:
+                    world.grid[nx][ny].pit = True
 
     # update possible wumpus locations based on if stench percept == True                 
     if stench and world.wumpus_alive:
@@ -64,6 +64,8 @@ def update_knowledge_from_percepts(world, x, y, breeze, stench):
             nx, ny = x + dx, y + dy
             if 0 <= nx < world.size and 0 <= ny < world.size:
                 world.grid[nx][ny].safe = True
+                world.grid[nx][ny].wumpus_probability = 0.
+                world.grid[nx][ny].pit_probability = 0.
                 
     if world.grid[x][y].visited:
         world.grid[x][y].safe = True
@@ -162,54 +164,79 @@ def adjust_coordinates(world):
 # function for determing pit probability
 # should only be called if breeze is true
 def pit_probability(world):
-    # agent is touching the left wall
-    #print("\nIn pit_probability") #used for debugging
     x = world.agent_x
     y = world.agent_y
-    # first, get all probabilities in x range
-    if x >= 0 and x < 3: 
-        world.grid[x+1][y].pit_probability = world.grid[x+1][y].pit_probability + 0.1
-    if x <= 3 and x > 0:
-        world.grid[x-1][y].pit_probability = world.grid[x-1][y].pit_probability + 0.1
     
-    # second, get all probabilities in y range
-    if y >= 0 and y < 3:
-        world.grid[x][y+1].pit_probability = world.grid[x][y+1].pit_probability + 0.1
-    if y <= 3 and y > 0:
-        world.grid[x][y-1].pit_probability = world.grid[x][y-1].pit_probability + 0.1
+    unsafe_neighbors = []
+    
+    for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < world.size and 0 <= ny < world.size:
+            if not world.grid[nx][ny].safe:
+                unsafe_neighbors.append((nx, ny))
+    
+    if len(unsafe_neighbors) == 1:
+        nx, ny = unsafe_neighbors[0]
+        world.grid[nx][ny].pit_probability = 1.0
+    else:
+        for nx, ny in unsafe_neighbors:
+            world.grid[nx][ny].pit_probability += 0.1
     
     return
+
 
 # determine the wumpus probability
 # called if stench == True
 def wumpus_probability(world):
     x = world.agent_x
     y = world.agent_y
-    print("\nIn wumpus_probability") # used for debugging
-
-    # first, get all probabilities in x range
-    if x >= 0 and x < 3: 
-        world.grid[x+1][y].wumpus_probability = world.grid[x+1][y].wumpus_probability + 0.1
-    if x <= 3 and x > 0:
-        world.grid[x-1][y].wumpus_probability = world.grid[x-1][y].wumpus_probability + 0.1
     
-    # second, get all probabilities in y range
-    if y >= 0 and y < 3:
-        world.grid[x][y+1].wumpus_probability = world.grid[x][y+1].wumpus_probability + 0.1
-    if y <= 3 and y > 0:
-        world.grid[x][y-1].wumpus_probability = world.grid[x][y-1].wumpus_probability + 0.1
+    unsafe_neighbors = []
+    
+    for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < world.size and 0 <= ny < world.size:
+            if not world.grid[nx][ny].safe:
+                unsafe_neighbors.append((nx, ny))
+    # If only one unsafe neighbor is found it must be the wumpus
+    if len(unsafe_neighbors) == 1:
+        for x1 in range(world.size):
+            for y1 in range(world.size):
+                # sets all cells that had a probability of being a wumpus to safe except the confirmed cell and suspected pits
+                if world.grid[x1][y1].wumpus_probability > 0 and world.grid[x1][y1].pit_probability == 0.:
+                    world.grid[x1][y1].safe = True
+                world.grid[x1][y1].wumpus_probability = 0.
+        nx, ny = unsafe_neighbors[0]
+        world.grid[nx][ny].wumpus_probability = 1.0
+        world.grid[nx][ny].safe = False
+    else:
+        for nx, ny in unsafe_neighbors:
+            if world.grid[nx][ny].wumpus_probability >= 0.2:
+                for x1 in range(world.size):
+                    for y1 in range(world.size):
+                        # sets all cells that had a probability of being a wumpus to safe except the confirmed cell and suspected pits
+                        if world.grid[x1][y1].wumpus_probability > 0 and world.grid[x1][y1].pit_probability == 0.:
+                            world.grid[x1][y1].safe = True
+                        world.grid[x1][y1].wumpus_probability = 0.
+                world.grid[nx][ny].wumpus_probability = 1.0
+                world.grid[nx][ny].safe = False
+                break
+            else:
+                world.grid[nx][ny].wumpus_probability += 0.1
+    
     return
 
 # print the pit probability of all the cells
 def print_pit_probability(world):
     print("\nPrinting pit probability for each cell:")
     for x in range(world.size):
+        #print("")
         for y in range(world.size):
             # print the pit probability of every cell
             if world.grid[x][y].safe == True:
                 world.grid[x][y].pit_probability = 0.0
                 world.grid[x][y].wumpus_probability = 0.0
-            print(f"|Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability} wumpus_prob:{world.grid[x][y].wumpus_probability}|\t", end="")
+            print(f"|Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability} wumpus_prob:{world.grid[x][y].wumpus_probability}|safety:{world.grid[x][y].safe}")
         print("") 
     print("")
     return
@@ -222,6 +249,18 @@ def world_state(world):
                   f"\tpit:{world.grid[x][y].pit} \t wumpus:{world.grid[x][y].wumpus}\
                   breeze:{world.grid[x][y].breeze} \t stench:{world.grid[x][y].stench}\n")
 
+def get_frontier(world):
+    frontier= []
+    for x in range(world.size):
+        for y in range(world.size):
+            if world.grid[x][y].visited:
+                for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+                    nx, ny = x + dx, y + dy
+                    if nx >= 0 and nx < world.size and ny >= 0 and ny < world.size and not world.grid[nx][ny].visited:
+                        frontier.append((nx,ny))
+    return frontier
+
+    
 
 def PyAgent_Constructor():
     """ PyAgent_Constructor: called at the start of a new trial """
@@ -250,24 +289,29 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
     """ PyAgent_Process: called with new percepts after each action to return the next action """
     global myworld, go_forward, start, shot
     
-    print("Agent's x_pos: ",myworld.agent_x) # for debugging #############
-    print("Agent's y_pos: ",myworld.agent_y) # for debugging #############
+    # position correction for if the cell value somehow exceeds the world size
+    if myworld.agent_x >= myworld.size:
+        myworld.agent_x = myworld.size - 1
+    if myworld.agent_y >= myworld.size:
+        myworld.agent_y = myworld.size - 1
+    
     # only update the pit_probabilities if there is a breeze and agent hasn't visited cell
     if breeze and myworld.grid[myworld.agent_x][myworld.agent_y].visited == False:
         pit_probability(myworld)
-
+        
     # only update if in a new cell and wumpus is still alive
     if stench and myworld.grid[myworld.agent_x][myworld.agent_y].visited == False and myworld.wumpus_alive == True:
         wumpus_probability(myworld)
-
     # if wumpus is killed, wumpus_probability will be 0.0
-    if scream == True:
+    if shot and not myworld.wumpus_alive:
         for x in range(myworld.size):
             for y in range(myworld.size):
                 myworld.grid[x][y].wumpus_probability = 0.0 
 
+
     # Update world knowledge with new percepts
     update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
+        
     #world_state(myworld)
     percept_str = ""
     if stench == 1:
@@ -313,11 +357,13 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
         elif scream:
             myworld.wumpus_alive = False
             update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
+            adjust_coordinates(myworld)
             if not breeze:
-                adjust_coordinates(myworld)
                 return Action.GOFORWARD
         elif shot and not breeze:
             shot = False
+            # Increase wumpus probability since the wumpus wasn't shot we are more sure of where it is
+            wumpus_probability(myworld)
             adjust_coordinates(myworld)
             return Action.GOFORWARD
     
@@ -328,11 +374,35 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
         if next_move is None:
             if start:
                 return Action.CLIMB
-            #logic needs some adjustment, for now if no move is found retreat
+            # if no more safe moves are found use probability to find next safest move
             else:
-                nx, ny = 0, 0
-                if myworld.agent_x == 0 and myworld.agent_y == 0:
-                    return Action.CLIMB
+                nx = 0
+                ny = 0
+                best_prob = 1
+                frontiers = get_frontier(myworld)
+                print(f"Frontier: {frontiers}")
+                
+                # Count the occurrences of each (x, y) pair
+                frontier_counts = {}
+                for x, y in frontiers:
+                    if (x, y) not in frontier_counts:
+                        frontier_counts[(x, y)] = 0
+                    frontier_counts[(x, y)] += 1
+                
+                for (x, y), count in frontier_counts.items():
+                    prob = myworld.grid[x][y].pit_probability + myworld.grid[x][y].wumpus_probability
+                    if (count == 2 and prob < 0.2) or (count == 3 and prob < 0.3):
+                        best_prob = prob
+                        nx = x
+                        ny = y
+                        break
+                    elif prob < best_prob:
+                        best_prob = prob
+                        nx = x
+                        ny = y
+                # Assume the chosen frontier is safe to allow other logic to move to target cell
+                myworld.grid[nx][ny].safe = True
+                print(f"Frontier chosen: {nx}, {ny} with prob: {best_prob}")
         else:
             nx, ny = next_move
         
