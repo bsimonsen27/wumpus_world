@@ -70,6 +70,70 @@ def update_knowledge_from_percepts(world, x, y, breeze, stench):
     if world.grid[x][y].visited:
         world.grid[x][y].safe = True
 
+# trying new update knowledge using bayes theorom
+def update_knowledge_using_bayes(world, x, y, breeze, stench):
+    cell = world.grid[x][y]
+    cell.visited = True
+    cell.breeze = breeze
+    cell.stench = stench
+
+    # Update probabilities for neighboring cells
+    for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < world.size and 0 <= ny < world.size:
+            if not world.grid[nx][ny].visited and not world.grid[nx][ny].safe:
+                if breeze:
+                    update_pit_probability(world, nx, ny, breeze)
+                if stench and world.wumpus_alive:
+                    update_wumpus_probability(world, nx, ny, stench)
+
+
+
+# bayes therom implementation
+def update_wumpus_probability(world, x, y, stench):
+    # take the current porbability of a wumpus, initialized to 0.0
+    p_wumpus = world.grid[x][y].wumpus_probability
+
+    # initial probabilities
+    if stench:
+        s_given_w = 0.9     # P(stench|wumpus)
+        s_given_no_w = 0.1  # P(stench|no wumpus)
+    else:
+        s_given_w = 0.1     # P(stench|wumpus)
+        s_given_no_w = 0.9  # P(stench|no wumpus)
+
+    # use bayes theorem... i think
+    new_wumpus_probability = (s_given_w * p_wumpus) / \
+                            ((s_given_w * p_wumpus) + 
+                             (s_given_no_w * (1 - p_wumpus)))
+
+    # Update the probability in the grid
+    world.grid[x][y].wumpus_probability = new_wumpus_probability
+
+
+# use bayes therom to update pit probability
+def update_pit_probability(world, x, y, breeze):
+    # take the prior probability of a pit, they are initialized to 0.0
+    p_pit = world.grid[x][y].pit_probability
+
+    # initial probabilities
+    if breeze:
+        b_given_p = 0.9     # P(breeze|pit)
+        b_given_no_p = 0.1  # P(breeze|no pit)
+    else:
+        b_given_p = 0.1     # P(breeze|pit)
+        b_given_no_p = 0.9  # P(breeze|no pit)
+
+    # implement Bayes theorem
+    new_pit_prob = (b_given_p * p_pit) / \
+                         ((b_given_p * p_pit) + 
+                          (b_given_no_p * (1 - p_pit)))
+
+    # Update pit_prob
+    world.grid[x][y].pit_probability = new_pit_prob
+
+
+
 # function to hopefully choose a good next move
 def choose_next_move(world):
     # Example strategy: find the closest safe, unvisited cell
@@ -237,6 +301,7 @@ def print_pit_probability(world):
                 world.grid[x][y].pit_probability = 0.0
                 world.grid[x][y].wumpus_probability = 0.0
             print(f"|Cell[{x}][{y}] pit_prob:{world.grid[x][y].pit_probability} wumpus_prob:{world.grid[x][y].wumpus_probability}|safety:{world.grid[x][y].safe}")
+            #print(f"|Cell[{x}][{y}] pit_prob:{pit_num:.3f} wumpus_prob:{wum_num:.3f}|safety:{world.grid[x][y].safe}")
         print("") 
     print("")
     return
@@ -311,6 +376,8 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
 
     # Update world knowledge with new percepts
     update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
+    # use bayes
+    #update_knowledge_using_bayes(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
         
     #world_state(myworld)
     percept_str = ""
@@ -357,6 +424,8 @@ def PyAgent_Process(stench, breeze, glitter, bump, scream):
         elif scream:
             myworld.wumpus_alive = False
             update_knowledge_from_percepts(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
+            # trying using bayes
+            #update_knowledge_using_bayes(myworld, myworld.agent_x, myworld.agent_y, breeze, stench)
             adjust_coordinates(myworld)
             if not breeze:
                 return Action.GOFORWARD
